@@ -1,9 +1,32 @@
 {
-  "solidity.packageDefaultDependenciesContractsDirectory": "src",
-  "solidity.packageDefaultDependenciesDirectory": "lib",
-  "solidity.compileUsingRemoteVersion": "v0.8.15",
-  "search.exclude": { "lib": true },
+  "editor.formatOnSave": true,
+  "editor.tabSize": 4,
   "files.associations": {
     ".gas-snapshot": "julia"
-  }
+  },
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/.git": true,
+    "**/.hg": true,
+    "**/.svn": true,
+    "**/CVS": true,
+    "**/Thumbs.db": true,
+    "cache": true,
+    "node_modules": true,
+    "out": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/*.code-search": true,
+    "lib/": true
+  },
+  "solidity.compileUsingLocalVersion": "/Users/knrz/Git/edendao/omniprotocol/cache/soljson-v0.8.13+commit.abaa5c0e.js",
+  "solidity.compileUsingRemoteVersion": "v0.8.15",
+  "solidity.defaultCompiler": "localFile",
+  "solidity.formatter": "prettier",
+  "solidity.packageDefaultDependenciesContractsDirectory": "src",
+  "solidity.packageDefaultDependenciesDirectory": "lib",
+  "solidity.remappings": [
+    "./remappings.txt"
+  ]
 }

@@ -1,6 +1,7 @@
 {
-  "name": "foundry-template",
-  "license": "MIT",
+  "name": "love-prize",
+  "license": "UNLICENSE",
+  "private": true,
   "version": "1.0.0",
   "description": "Streamlined template for getting started with Foundry and Solmate.",
   "files": [

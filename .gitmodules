@@ -4,3 +4,9 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/rari-capital/solmate
+[submodule "lib/omniprotocol"]
+	path = lib/omniprotocol
+	url = https://github.com/edendao/omniprotocol
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
