@@ -10,3 +10,10 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/drips-contracts"]
+	path = lib/drips-contracts
+	url = https://github.com/radicle-dev/drips-contracts
+	branch = master_v0.1
+[submodule "lib/juice-contracts-v3"]
+	path = lib/juice-contracts-v3
+	url = https://github.com/jbx-protocol/juice-contracts-v3
