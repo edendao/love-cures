@@ -1,7 +1,12 @@
 [profile.default]
-solc = "0.8.15"
+solc = "0.8.16"
 bytecode_hash = "none"
-optimizer_runs = 1000000
+optimizer_runs = 1000
+via_ir = true
 
 [profile.intense.fuzz]
 runs = 10000
+
+[rpc_endpoints]
+mainnet = "https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_MAINNET_KEY}"
+goerli = "https://eth-goerli.g.alchemy.com/v2/${ALCHEMY_GOERLI_KEY}"
