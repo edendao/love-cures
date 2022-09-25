@@ -7,7 +7,7 @@ import "solmate/auth/Auth.sol";
 
 import "./mixins/ERC20DripsNode.sol";
 
-contract ImpactStreamer is ERC20DripsNode, Auth {
+contract ImpactPool is ERC20DripsNode, Auth {
     constructor(address _dripsHub, address _authority)
         ERC20DripsNode(ERC20DripsHub(_dripsHub))
         Auth(msg.sender, Authority(_authority))
@@ -19,14 +19,15 @@ contract ImpactStreamer is ERC20DripsNode, Auth {
      * @notice this normalizes the new split `weights` as if they were "Impact Points"
      * @notice the total sum of impact points cannot be equal to or greater than 1_000_000
      */
-    function updateStreams(SplitsReceiver[] memory newSplits)
+    function updateSplits(SplitsReceiver[] memory newSplits)
         external
         requiresAuth
     {
-        uint256 totalImpactPoints = 0;
+        uint32 totalWeight = dripsHub.TOTAL_SPLITS_WEIGHT();
+        uint256 totalInputWeight = 0;
 
         for (uint256 i = 0; i < newSplits.length;) {
-            totalImpactPoints += newSplits[i].weight;
+            totalInputWeight += newSplits[i].weight;
 
             unchecked {
                 ++i;
@@ -35,7 +36,7 @@ contract ImpactStreamer is ERC20DripsNode, Auth {
 
         for (uint256 i = 0; i < newSplits.length;) {
             newSplits[i].weight =
-                uint32(newSplits[i].weight / totalImpactPoints);
+                uint32(newSplits[i].weight * totalWeight / totalInputWeight);
 
             unchecked {
                 ++i;

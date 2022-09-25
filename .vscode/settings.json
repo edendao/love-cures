@@ -22,14 +22,13 @@
   "solidity.compileUsingLocalVersion": "/Users/knrz/Git/love/love-cures/cache/soljson-v0.8.16+commit.07a7930e.js",
   "solidity.compileUsingRemoteVersion": "v0.8.16",
   "solidity.defaultCompiler": "localFile",
-  "solidity.formatter": "forge",
   "solidity.packageDefaultDependenciesContractsDirectory": "src",
   "solidity.packageDefaultDependenciesDirectory": "lib",
   "solidity.remappings": [
     "./remappings.txt"
   ],
   "[solidity]": {
-    "editor.defaultFormatter": "JuanBlanco.solidity",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
   },
   "[toml]": {
     "editor.defaultFormatter": "bodil.prettier-toml"

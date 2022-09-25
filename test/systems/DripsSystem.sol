@@ -5,8 +5,8 @@ import "forge-std/Test.sol";
 import "drips-contracts/IDai.sol";
 import "drips-contracts/ERC20DripsHub.sol";
 
-import "src/ImpactStreamer.sol";
-import "src/PrizeStreamer.sol";
+import "src/ImpactPool.sol";
+import "src/PrizePool.sol";
 
 abstract contract DripsSystem is Test {
     ERC20DripsHub internal dripsHub;
@@ -287,10 +287,8 @@ abstract contract DripsSystem is Test {
         assertCollectable(collected, expectedCollected, expectedSplit);
         uint256 expectedBalance = dai.balanceOf(collected) + expectedCollected;
 
-        vm.startPrank(user);
         (uint128 collectedAmt, uint128 splitAmt) =
             dripsHub.collect(address(collected), getCurrSplitsReceivers(user));
-        vm.stopPrank();
 
         assertEq(collectedAmt, expectedCollected, "Invalid collected amount");
         assertEq(splitAmt, expectedSplit, "Invalid split amount");

@@ -47,42 +47,52 @@ contract ERC20DripsNode {
         }
     }
 
-    /// @notice Sets the user's or the account's drips configuration.
+    function collect()
+        public
+        returns (uint128 collectedAmount, uint128 splitAmount)
+    {
+        return dripsHub.collect(address(this), currentSplitsReceivers());
+    }
+
+    /// @notice Gives funds from the node to the receiver.
+    /// The receiver can collect them immediately.
+    /// Transfers the funds to be given from the node's wallet to the drips hub contract.
+    /// @param receiver The receiver
+    /// @param amount The given amount
+    function _give(address receiver, uint128 amount) internal {
+        dripsHub.erc20().approve(address(dripsHub), amount);
+        dripsHub.give(receiver, amount);
+    }
+
+    /// @notice Sets the node's drips configuration.
     /// Transfers funds between the node and the drips hub contract
     /// to fulfill the change of the drips balance.
-    /// @param balanceDelta The drips balance change to be applied.
-    /// Positive to add funds to the drips balance, negative to remove them.
-    /// @param newReceivers The list of the drips receivers of the user or the account to be set.
+    /// @param totalDrip The total amount to be dripped.
+    /// @param newReceivers The list of the drips receivers of the node or the account to be set.
     /// Must be sorted by the receivers' addresses, deduplicated and without 0 amtPerSecs.
-    /// @return newBalance The new drips balance of the user or the account.
-    /// Pass it as `lastBalance` when updating that user or the account for the next time.
+    /// @return newBalance The new drips balance of the node.
     /// @return realBalanceDelta The actually applied drips balance change.
-    function _setDrips(int128 balanceDelta, DripsReceiver[] memory newReceivers)
+    function _setDrips(uint128 totalDrip, DripsReceiver[] memory newReceivers)
         internal
         returns (uint128 newBalance, int128 realBalanceDelta)
     {
-        if (balanceDelta > 0) {
-            dripsHub.erc20().approve(address(dripsHub), uint128(balanceDelta));
-        }
         (
             uint64 lastUpdate,
             uint128 lastBalance,
             DripsReceiver[] memory currReceivers
         ) = loadDrips();
 
-        return dripsHub.setDrips(
+        int128 balanceDelta = int128(totalDrip) - int128(lastBalance);
+        if (balanceDelta > 0) {
+            dripsHub.erc20().approve(address(dripsHub), uint128(balanceDelta));
+        }
+
+        (newBalance, realBalanceDelta) = dripsHub.setDrips(
             lastUpdate, lastBalance, currReceivers, balanceDelta, newReceivers
         );
-    }
 
-    /// @notice Gives funds from the user or their account to the receiver.
-    /// The receiver can collect them immediately.
-    /// Transfers the funds to be given from the user's wallet to the drips hub contract.
-    /// @param receiver The receiver
-    /// @param amt The given amount
-    function _give(address receiver, uint128 amt) internal {
-        dripsHub.erc20().approve(address(dripsHub), amt);
-        dripsHub.give(receiver, amt);
+        encodedDrips =
+            abi.encode(uint64(block.timestamp), newBalance, newReceivers);
     }
 
     /// @notice Collects funds received by the node and sets their splits.
@@ -90,13 +100,16 @@ contract ERC20DripsNode {
     /// @param newReceivers The new list of the user's splits receivers.
     /// Must be sorted by the splits receivers' addresses, deduplicated and without 0 weights.
     /// Each splits receiver will be getting `weight / 1_000_000`
-    /// share of the funds collected by the user.
+    /// share of the funds collected by the node.
     /// @return collected The collected amount
-    /// @return split The amount split to the user's splits receivers
+    /// @return split The amount split to the node's splits receivers
     function _setSplits(SplitsReceiver[] memory newReceivers)
         internal
         returns (uint128 collected, uint128 split)
     {
-        return dripsHub.setSplits(currentSplitsReceivers(), newReceivers);
+        (collected, split) =
+            dripsHub.setSplits(currentSplitsReceivers(), newReceivers);
+
+        encodedCurrentSplitsReceivers = abi.encode(newReceivers);
     }
 }
