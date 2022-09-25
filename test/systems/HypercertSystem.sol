@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {Hypercert} from "src/Hypercert.sol";
 import {Evaluation} from "src/Evaluation.sol";
 
-contract HypercertSystem is Test {
+abstract contract HypercertSystem is Test {
     // Mock contracts pending final Hypercert & Evaluation standard from Filecoin
     Hypercert internal hypercert;
     Evaluation internal evaluation;

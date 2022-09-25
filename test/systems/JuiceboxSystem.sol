@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import "juice-contracts-v3/JBController.sol";
 import "juice-contracts-v3/JBETHPaymentTerminal.sol";
 
-contract JuiceboxSystem is Test {
+abstract contract JuiceboxSystem is Test {
     address internal constant ETH =
         address(0x000000000000000000000000000000000000EEEe);
 
@@ -18,8 +18,8 @@ contract JuiceboxSystem is Test {
     IJBPaymentTerminal[] internal terminals;
 
     function setUp() public virtual {
-        // Run against the latest Juicebox contracts on Goerli, cached to block 7642069
-        vm.createSelectFork("goerli", 7642069);
+        // Run against the latest Juicebox contracts on Goerli, cached to block 7642000
+        vm.createSelectFork("goerli", 7642000);
 
         controller = JBController(0x7Cb86D43B665196BC719b6974D320bf674AFb395);
         vm.label(address(controller), "Controller");
@@ -55,7 +55,6 @@ contract JuiceboxSystem is Test {
     }
 
     function createPrizePool(
-        string memory name,
         uint256 prizePoolTokensPerETH,
         uint256 distributionPoolProjectId
     )
@@ -95,18 +94,16 @@ contract JuiceboxSystem is Test {
         });
         JBGroupedSplits[] memory groupedSplits;
 
-        uint256 lockedUntil = block.timestamp + 365 days;
-
         nextPoolId = controller.launchProjectFor(
             msg.sender,
             JBProjectMetadata({content: "<IPFS hash>", domain: 0}),
             fundingCycleConfig,
             fundingCycleOptions,
-            lockedUntil,
+            block.timestamp + 365 days,
             groupedSplits,
             fundAccessConstraints,
             terminals,
-            name
+            "Prize Pool"
         );
 
         JBSplit[] memory splits = new JBSplit[](2);
@@ -116,7 +113,7 @@ contract JuiceboxSystem is Test {
             percent: JBConstants.SPLITS_TOTAL_PERCENT * 2 / 10, // 20%
             projectId: distributionPoolProjectId,
             beneficiary: payable(address(0)),
-            lockedUntil: lockedUntil,
+            lockedUntil: block.timestamp + 365 days,
             allocator: IJBSplitAllocator(address(0))
         });
         splits[1] = JBSplit({
@@ -125,7 +122,7 @@ contract JuiceboxSystem is Test {
             percent: JBConstants.SPLITS_TOTAL_PERCENT * 8 / 10, // 80%
             projectId: nextPoolId,
             beneficiary: payable(address(0)),
-            lockedUntil: lockedUntil,
+            lockedUntil: block.timestamp + 365 days,
             allocator: IJBSplitAllocator(address(0))
         });
 
@@ -141,14 +138,11 @@ contract JuiceboxSystem is Test {
             groupedSplits,
             fundAccessConstraints,
             terminals,
-            name
+            "Prize Pool"
         );
     }
 
-    function createDistributionPool(string memory name)
-        internal
-        returns (uint256 poolId)
-    {
+    function createDistributionPool() internal returns (uint256 poolId) {
         JBGroupedSplits[] memory groupedSplits;
 
         poolId = controller.launchProjectFor(
@@ -188,14 +182,11 @@ contract JuiceboxSystem is Test {
             groupedSplits,
             fundAccessConstraints,
             terminals,
-            name
+            "Distribution Pool"
         );
     }
 
-    function createHyperIPNFTPool(
-        string memory name,
-        uint256 hypercertTokensPerETH
-    )
+    function createHyperIPNFTPool(uint256 hypercertTokensPerETH)
         internal
         returns (uint256 poolId)
     {
@@ -238,7 +229,7 @@ contract JuiceboxSystem is Test {
             groupedSplits,
             fundAccessConstraints,
             terminals,
-            name
+            "Hyper IP NFT"
         );
     }
 }

@@ -15,24 +15,20 @@ contract JuiceboxPrizeTest is ActorSystem, HypercertSystem, JuiceboxSystem {
         ActorSystem.setUp();
     }
 
-    function testPrizePool() public {
+    function testJuiceboxPrizePool() public {
         // 1. Council forms permissionlessly and creates a Distribution Pool
 
         // Doing this first saves 1 transaction because then the Prize Pool
         // can be initialized with an outflow to the distribution pool.
         vm.startPrank(council);
-        uint256 distributionPoolProjectId =
-            createDistributionPool("Open Psychedelic Treatment Distribution Pool");
+        uint256 distributionPoolProjectId = createDistributionPool();
         vm.stopPrank();
 
         // 2. Ops creates a Prize Pool for recieving funding and paying out to the Distribution Pool
         vm.startPrank(ops);
         uint256 prizePoolTokensPerETH = 1000 * 1 ether;
-        (uint256 prizePoolId, uint256 nextPrizePoolId) = createPrizePool(
-            "Open Psychedelic Treatment Prize Pool",
-            prizePoolTokensPerETH,
-            distributionPoolProjectId
-        );
+        (uint256 prizePoolId,) =
+            createPrizePool(prizePoolTokensPerETH, distributionPoolProjectId);
         vm.stopPrank();
 
         {
@@ -55,8 +51,7 @@ contract JuiceboxPrizeTest is ActorSystem, HypercertSystem, JuiceboxSystem {
 
         // 2. Researcher creates a project to fractionalize the Hyper IP NFT
         uint256 hyperIPNFTTokensPerETH = 1000 * 1 ether; // 1,000 tokens per ETH
-        uint256 hyperIPNFTPoolId =
-            createHyperIPNFTPool(hypercertName, hyperIPNFTTokensPerETH);
+        uint256 hyperIPNFTPoolId = createHyperIPNFTPool(hyperIPNFTTokensPerETH);
         vm.stopPrank();
 
         {
