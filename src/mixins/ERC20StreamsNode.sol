@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "drips-contracts/ERC20DripsHub.sol";
 
-contract ERC20DripsNode {
+contract ERC20StreamsNode {
     ERC20DripsHub internal immutable dripsHub;
 
     constructor(ERC20DripsHub _dripsHub) {
@@ -14,10 +14,11 @@ contract ERC20DripsNode {
         return dripsHub.erc20().balanceOf(address(this));
     }
 
-    bytes internal encodedDrips;
-    bytes internal encodedCurrentSplitsReceivers;
+    // Store the latest drips and splits receivers for transparency
+    bytes private encodedDrips;
+    bytes private encodedCurrentSplitsReceivers;
 
-    function loadDrips()
+    function currentDrips()
         public
         view
         returns (
@@ -54,6 +55,25 @@ contract ERC20DripsNode {
         return dripsHub.collect(address(this), currentSplitsReceivers());
     }
 
+    function _emergencyShutdown()
+        internal
+        returns (
+            uint128 newBalance,
+            int128 realBalanceDelta,
+            uint128 collectedAmount,
+            uint128 splitAmount
+        )
+    {
+        SplitsReceiver[] memory newSplits = new SplitsReceiver[](0);
+        DripsReceiver[] memory newDrips = new DripsReceiver[](0);
+
+        (newBalance, realBalanceDelta) = _setDrips(0, newDrips);
+        (collectedAmount, splitAmount) = _setSplits(newSplits);
+
+        // Reset approvals
+        dripsHub.erc20().approve(address(dripsHub), 0);
+    }
+
     /// @notice Gives funds from the node to the receiver.
     /// The receiver can collect them immediately.
     /// Transfers the funds to be given from the node's wallet to the drips hub contract.
@@ -80,7 +100,7 @@ contract ERC20DripsNode {
             uint64 lastUpdate,
             uint128 lastBalance,
             DripsReceiver[] memory currReceivers
-        ) = loadDrips();
+        ) = currentDrips();
 
         int128 balanceDelta = int128(totalDrip) - int128(lastBalance);
         if (balanceDelta > 0) {
@@ -88,11 +108,18 @@ contract ERC20DripsNode {
         }
 
         (newBalance, realBalanceDelta) = dripsHub.setDrips(
-            lastUpdate, lastBalance, currReceivers, balanceDelta, newReceivers
+            lastUpdate,
+            lastBalance,
+            currReceivers,
+            balanceDelta,
+            newReceivers
         );
 
-        encodedDrips =
-            abi.encode(uint64(block.timestamp), newBalance, newReceivers);
+        encodedDrips = abi.encode(
+            uint64(block.timestamp),
+            newBalance,
+            newReceivers
+        );
     }
 
     /// @notice Collects funds received by the node and sets their splits.
@@ -107,8 +134,10 @@ contract ERC20DripsNode {
         internal
         returns (uint128 collected, uint128 split)
     {
-        (collected, split) =
-            dripsHub.setSplits(currentSplitsReceivers(), newReceivers);
+        (collected, split) = dripsHub.setSplits(
+            currentSplitsReceivers(),
+            newReceivers
+        );
 
         encodedCurrentSplitsReceivers = abi.encode(newReceivers);
     }

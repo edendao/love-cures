@@ -17,7 +17,8 @@
   },
   "search.exclude": {
     "**/node_modules": true,
-    "**/*.code-search": true
+    "**/*.code-search": true,
+    "lib/**/*.{json,js,ts,tsx,go,sql}": true
   },
   "solidity.compileUsingLocalVersion": "/Users/knrz/Git/love/love-cures/cache/soljson-v0.8.16+commit.07a7930e.js",
   "solidity.compileUsingRemoteVersion": "v0.8.16",

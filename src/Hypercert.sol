@@ -13,11 +13,12 @@ contract Hypercert is MockERC1155 {
         super.mint(msg.sender, id, 1, data);
     }
 
-    function mint(address, uint256, uint256, bytes memory)
-        public
-        pure
-        override
-    {
+    function mint(
+        address,
+        uint256,
+        uint256,
+        bytes memory
+    ) public pure override {
         revert("NOT_IMPLEMENTED");
     }
 }

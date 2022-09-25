@@ -5,11 +5,11 @@ import "openzeppelin-contracts/interfaces/IERC1155.sol";
 
 import "solmate/auth/Auth.sol";
 
-import "./mixins/ERC20DripsNode.sol";
+import "./mixins/ERC20StreamsNode.sol";
 
-contract ImpactPool is ERC20DripsNode, Auth {
+contract ImpactPool is ERC20StreamsNode, Auth {
     constructor(address _dripsHub, address _authority)
-        ERC20DripsNode(ERC20DripsHub(_dripsHub))
+        ERC20StreamsNode(ERC20DripsHub(_dripsHub))
         Auth(msg.sender, Authority(_authority))
     {}
 
@@ -22,11 +22,12 @@ contract ImpactPool is ERC20DripsNode, Auth {
     function updateSplits(SplitsReceiver[] memory newSplits)
         external
         requiresAuth
+        returns (uint128 collectedAmount, uint128 streamedAmount)
     {
         uint32 totalWeight = dripsHub.TOTAL_SPLITS_WEIGHT();
         uint256 totalInputWeight = 0;
 
-        for (uint256 i = 0; i < newSplits.length;) {
+        for (uint256 i = 0; i < newSplits.length; ) {
             totalInputWeight += newSplits[i].weight;
 
             unchecked {
@@ -34,15 +35,34 @@ contract ImpactPool is ERC20DripsNode, Auth {
             }
         }
 
-        for (uint256 i = 0; i < newSplits.length;) {
-            newSplits[i].weight =
-                uint32(newSplits[i].weight * totalWeight / totalInputWeight);
+        for (uint256 i = 0; i < newSplits.length; ) {
+            newSplits[i].weight = uint32(
+                (newSplits[i].weight * totalWeight) / totalInputWeight
+            );
 
             unchecked {
                 ++i;
             }
         }
 
-        _setSplits(newSplits);
+        (collectedAmount, streamedAmount) = _setSplits(newSplits);
+    }
+
+    function emergencyShutdown()
+        external
+        requiresAuth
+        returns (
+            uint128 newBalance,
+            int128 realBalanceDelta,
+            uint128 collectedAmount,
+            uint128 streamedAmount
+        )
+    {
+        (
+            newBalance,
+            realBalanceDelta,
+            collectedAmount,
+            streamedAmount
+        ) = _emergencyShutdown();
     }
 }
