@@ -20,7 +20,7 @@ contract ERC20StreamsNode is Auth {
         address token,
         address to,
         uint256 amount
-    ) external requiresAuth {
+    ) public virtual requiresAuth {
         SafeTransferLib.safeTransfer(ERC20(token), to, amount);
     }
 

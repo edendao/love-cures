@@ -28,6 +28,15 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         impactPool.setOwner(council);
     }
 
+    function testExampleStreamingPrize() public {
+        testStreamingPrize({
+            initialPrizeFactor: 1, // $1B initial prize pool
+            months: 12,
+            impactPoolFlowFactor: 51, // 19.89%
+            donationFactor: 10 // $1M donation
+        });
+    }
+
     function testStreamingPrize(
         uint8 initialPrizeFactor, // 1–255 * $1B
         uint8 months, // 6–255
@@ -72,19 +81,19 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
 
         // 5. Researcher raises funds using Syndicate DAO or any other ERC20 with a transfer lock
         /// @notice MockERC20 used in place of Syndicate DAO ERC20
-        MockERC20 hyperIPShares = new MockERC20(
+        MockERC20 ipShares = new MockERC20(
             "Open Psilocybin Treatment #42",
             "MUSHIES",
             18
         );
-        hyperIPShares.mint(researcher, 9000);
-        hyperIPShares.mint(investor, 1000);
+        ipShares.mint(researcher, 9000);
+        ipShares.mint(investor, 1000);
         // 6. Researcher launches their IPPool
         vm.startPrank(researcher);
         IPPool ipPool = new IPPool(
             address(streamsHub),
             address(0),
-            address(hyperIPShares)
+            address(ipShares)
         );
         vm.stopPrank();
         // and ERC20 holders can register their shares for their stream of outcome payments
@@ -172,7 +181,7 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         uint16 r1shares,
         uint16 r2shares,
         uint16 r3shares
-    ) public returns (IPPool ipPool) {
+    ) public {
         vm.assume(
             2000 <= researcherShares &&
                 2000 <= r1shares &&
@@ -180,17 +189,21 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
                 2000 <= r3shares
         );
 
-        MockERC20 shares = new MockERC20(
+        MockERC20 ipShares = new MockERC20(
             "Open Psilocybin Treatment #42",
             "MUSHIES",
             18
         );
-        shares.mint(researcher, researcherShares);
-        shares.mint(receiver1, r1shares);
-        shares.mint(receiver2, r2shares);
-        shares.mint(receiver3, r3shares);
+        ipShares.mint(researcher, researcherShares);
+        ipShares.mint(receiver1, r1shares);
+        ipShares.mint(receiver2, r2shares);
+        ipShares.mint(receiver3, r3shares);
 
-        ipPool = new IPPool(address(streamsHub), address(0), address(shares));
+        IPPool ipPool = new IPPool(
+            address(streamsHub),
+            address(0),
+            address(ipShares)
+        );
 
         vm.prank(researcher);
         ipPool.register();
