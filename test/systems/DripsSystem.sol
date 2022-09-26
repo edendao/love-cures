@@ -12,30 +12,31 @@ abstract contract DripsSystem is Test {
     ERC20DripsHub internal streamsHub;
     IDai internal dai;
     uint64 internal cycleSeconds;
-    uint128 internal relativeFailureTolerance = 1.0e13; // 0.001%
 
     function setUp() public virtual {
         vm.createSelectFork("mainnet", 15600000);
 
         streamsHub = ERC20DripsHub(0x73043143e0A6418cc45d82D4505B096b802FD365);
-        cycleSeconds = streamsHub.cycleSecs();
         vm.label(address(streamsHub), "DaiDripsHub");
-
-        skipToCycleEnd();
 
         dai = IDai(address(streamsHub.erc20()));
         vm.label(address(dai), "Dai");
+
+        cycleSeconds = streamsHub.cycleSecs();
+        skipToCycleEnd(); // to synchronize with Drips
     }
 
     function giveDaiTo(address to, uint256 give) internal {
         deal(address(dai), to, give, false);
     }
 
-    function assertApproxEq(uint256 a, uint256 b) internal {
-        assertApproxEqRel(a, b, relativeFailureTolerance);
+    function assertStreamEq(uint256 a, uint256 b) internal {
+        assertApproxEqRel(a, b, 1.0e13); // 0.001% tolerance for integer rounding errors
     }
 
-    // Radicle Drips helpers
+    // ============================================================
+    // ===================== DRIPS HELPERS ========================
+    // ============================================================
     function skipToCycleEnd() internal {
         skip(cycleSeconds - (block.timestamp % cycleSeconds));
     }

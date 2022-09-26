@@ -79,12 +79,15 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         );
         hyperIPShares.mint(researcher, 9000);
         hyperIPShares.mint(investor, 1000);
-        // 6. Launching HyperIPNFT and ERC20 holders register their shares
+        // 6. Researcher launches their HyperIPNFT
+        vm.startPrank(researcher);
         HyperIPNFT hyperIPNFT = new HyperIPNFT(
             address(streamsHub),
             address(0),
             address(hyperIPShares)
         );
+        vm.stopPrank();
+        // and ERC20 holders can register their shares for their stream of outcome payments
         vm.prank(researcher);
         hyperIPNFT.register();
         vm.prank(investor);
@@ -95,12 +98,12 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         vm.startPrank(council);
         impactPool.setImpactSplits(
             splitsReceivers(
-                address(hyperIPNFT), // For testing hyperIPNFT
-                50,
-                receiver2,
-                30,
-                receiver3,
-                20
+                address(hyperIPNFT),
+                50, // Impact Points for Hyper IP NFT
+                receiver2, // regular address mocking HyperIPNFT
+                30, // Impact Points for receiver2
+                receiver3, // regular address mocking HyperIPNFT
+                20 // Impact Points for receiver3
             )
         );
         vm.stopPrank();
@@ -118,15 +121,16 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         );
         vm.stopPrank();
 
+        // Fast forward to the end of the stream
         skip(timePeriodInSeconds - cycleSeconds + 1);
 
         // Verify the PrizePool's collection and streaming of the donation
         (uint128 prizeCollections, uint128 prizeStreamed) = prizePool.collect();
-        assertApproxEq(
+        assertStreamEq(
             prizeCollections,
             (donation * (10_000 - impactPoolFlowBasisPoints)) / 10_000
         );
-        assertApproxEq(
+        assertStreamEq(
             prizeStreamed,
             (donation * impactPoolFlowBasisPoints) / 10_000
         );
@@ -138,29 +142,29 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
             timePeriodInSeconds +
             (donation * impactPoolFlowBasisPoints) /
             10_000;
-        assertApproxEq(outcomePaymentsStreamed, outcomePaymentsReceived);
+        assertStreamEq(outcomePaymentsStreamed, outcomePaymentsReceived);
         // Verify that receivers can collect their pro-rata share of outcome payments
         (uint128 r2payout, ) = streamsHub.collect(receiver2, splitsReceivers());
-        assertApproxEq(r2payout, (outcomePaymentsStreamed * 3) / 10);
+        assertStreamEq(r2payout, (outcomePaymentsStreamed * 3) / 10);
         (uint128 r3payout, ) = streamsHub.collect(receiver3, splitsReceivers());
-        assertApproxEq(r3payout, (outcomePaymentsStreamed * 2) / 10);
+        assertStreamEq(r3payout, (outcomePaymentsStreamed * 2) / 10);
         // Verify that Hyper IP NFT shareholders received their outcome payments
         (uint128 collectedIPPayments, uint128 streamedIPPayments) = hyperIPNFT
             .collect();
         assertEq(collectedIPPayments, 0);
-        assertApproxEq(streamedIPPayments, (outcomePaymentsStreamed * 5) / 10);
+        assertStreamEq(streamedIPPayments, (outcomePaymentsStreamed * 5) / 10);
         // Verify that the researcher received their share of outcome payments
         (uint128 researcherPayout, ) = streamsHub.collect(
             researcher,
             splitsReceivers()
         );
-        assertApproxEq(researcherPayout, (outcomePaymentsStreamed * 45) / 100);
+        assertStreamEq(researcherPayout, (outcomePaymentsStreamed * 45) / 100);
         // Verify that the researcher received their share of outcome payments
         (uint128 investorPayout, ) = streamsHub.collect(
             investor,
             splitsReceivers()
         );
-        assertApproxEq(investorPayout, (outcomePaymentsStreamed * 5) / 100);
+        assertStreamEq(investorPayout, (outcomePaymentsStreamed * 5) / 100);
     }
 
     function testHyperIPNFTRegistration(
