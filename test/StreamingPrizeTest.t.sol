@@ -4,16 +4,16 @@ pragma solidity ^0.8.0;
 import "solmate/test/utils/mocks/MockERC20.sol";
 
 import "./systems/ActorSystem.sol";
-import "./systems/StreamingSystem.sol";
+import "./systems/DripsSystem.sol";
 
 import "src/HyperIPNFT.sol";
 
-contract StreamingPrizeTest is ActorSystem, StreamingSystem {
+contract StreamingPrizeTest is ActorSystem, DripsSystem {
     PrizePool internal prizePool;
     ImpactPool internal impactPool;
 
-    function setUp() public override(ActorSystem, StreamingSystem) {
-        StreamingSystem.setUp();
+    function setUp() public override(ActorSystem, DripsSystem) {
+        DripsSystem.setUp();
         ActorSystem.setUp();
 
         // Give the Philanthropist $10M

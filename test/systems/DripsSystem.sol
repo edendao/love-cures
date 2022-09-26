@@ -8,7 +8,7 @@ import "drips-contracts/ERC20DripsHub.sol";
 import "src/ImpactPool.sol";
 import "src/PrizePool.sol";
 
-abstract contract StreamingSystem is Test {
+abstract contract DripsSystem is Test {
     ERC20DripsHub internal streamsHub;
     IDai internal dai;
     uint64 internal cycleSeconds;
