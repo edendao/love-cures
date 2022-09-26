@@ -16,8 +16,8 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         DripsSystem.setUp();
         ActorSystem.setUp();
 
-        // Give the Philanthropist $10M
-        giveDaiTo(philanthropist, 10_000_000 ether);
+        // Give the Philanthropist $100M
+        giveDaiTo(philanthropist, 100_000_000 ether);
 
         // 1. Ops sets up and manages their own PrizePool
         prizePool = new PrizePool(address(streamsHub), address(0));
@@ -28,10 +28,6 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         impactPool.setOwner(council);
     }
 
-    /*
-     * Test 16M+ combinations of factors for streaming funds
-     * from the Prize Pool to Impactful Research.
-     */
     function testStreamingPrize(
         uint8 initialPrizeFactor, // 1–255 * $1B
         uint8 months, // 6–255
@@ -51,9 +47,9 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         uint64 timePeriodInSeconds = uint64(months) * cycleSeconds;
         // Flow rates of up to 99.45%
         uint16 impactPoolFlowBasisPoints = uint16(impactPoolFlowFactor) * 39;
-        // Donation of up to $2,550,000 while the stream is in progress
+        // Donation of up to $25,550,000 while the stream is in progress
         uint128 donation = (uint128(donationFactor) *
-            10_000 ether *
+            100_000 ether *
             cycleSeconds) / cycleSeconds; // normalized to cycleSeconds
 
         uint128 dripPerSecond = uint128(
@@ -74,7 +70,7 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         );
         vm.stopPrank();
 
-        // 5. Researcher raises funds for using Syndicate DAO
+        // 5. Researcher raises funds using Syndicate DAO or any other ERC20 with a transfer lock
         /// @notice MockERC20 used in place of Syndicate DAO ERC20
         MockERC20 hyperIPShares = new MockERC20(
             "Open Psilocybin Treatment #42",
