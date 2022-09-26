@@ -6,6 +6,7 @@ import "solmate/test/utils/mocks/MockERC20.sol";
 import "./systems/ActorSystem.sol";
 import "./systems/DripsSystem.sol";
 
+import "src/ImpactProtocolVault.sol";
 import "src/IPPool.sol";
 
 contract StreamingPrizeTest is ActorSystem, DripsSystem {
@@ -28,16 +29,16 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         impactPool.setOwner(council);
     }
 
-    function testExampleStreamingPrize() public {
-        testStreamingPrize({
-            initialPrizeFactor: 1, // $1M initial prize pool
+    function testDemoStreamingPrize() public {
+        testFuzzStreamingPrize({
+            initialPrizeFactor: 10, // $10M initial prize pool
             months: 12,
             impactPoolFlowFactor: 51, // 19.89%
-            donationFactor: 1 // $1M donation
+            donationFactor: 10 // $1M donation
         });
     }
 
-    function testStreamingPrize(
+    function testFuzzStreamingPrize(
         uint8 initialPrizeFactor, // 1–255 * $1M
         uint8 months, // 6–255
         uint8 impactPoolFlowFactor, // 1–255 * 39 basis points
@@ -54,18 +55,18 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
             1_000_000 ether;
         // Streams up to 21.25 years long
         uint64 timePeriodInSeconds = uint64(months) * cycleSeconds;
-        // Flow rates of up to 99.45%
+        // Flow rates of 0.39–99.45%
         uint16 impactPoolFlowBasisPoints = uint16(impactPoolFlowFactor) * 39;
         // Donation of up to $25,550,000 while the stream is in progress
         uint128 donation = (uint128(donationFactor) *
             100_000 ether *
             cycleSeconds) / cycleSeconds; // normalized to cycleSeconds
 
-        uint128 dripPerSecond = uint128(
+        uint128 flowPerSecond = uint128(
             (initialPrizeFunding * impactPoolFlowBasisPoints) /
                 (timePeriodInSeconds * 10_000)
         );
-        vm.assume(0 < dripPerSecond);
+        vm.assume(0 < flowPerSecond);
 
         // 3. Fund the PrizePool contract
         giveDaiTo(address(prizePool), initialPrizeFunding);
@@ -79,45 +80,59 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         );
         vm.stopPrank();
 
-        // 5. Researcher raises funds using Syndicate DAO or any other ERC20 with a transfer lock
-        /// @notice MockERC20 used in place of Syndicate DAO ERC20
+        // 5. Researcher raises funds using Syndicate DAO or any other ERC20 platform
+        /// @notice MockERC20 represents the token that fractionalize their Hyper IP NFT
         MockERC20 ipShares = new MockERC20(
             "Open Psilocybin Treatment #42",
-            "MUSHIES",
+            "SHROOMS",
             18
         );
-        ipShares.mint(researcher, 9000);
-        ipShares.mint(investor, 1000);
-        // 6. Researcher launches their IPPool
-        vm.startPrank(researcher);
-        IPPool ipPool = new IPPool(
+        uint256 researcherShares = 1000;
+        uint256 investorShares = 9000;
+        ipShares.mint(researcher, researcherShares);
+        ipShares.mint(investor, investorShares);
+        /// 6. An Impact Protocol Vault is created for shareholders to stake their IP shares
+        /// @notice A share of this vault is a claim on the outcome payments streamed to the vault.
+        /// A share can be redeemed before maturity for a pro-rata share of the accumulated payments at anytime.
+        /// Redeeming your share early before all funds have been streamed gives you liquidity
+        /// but no claim on future streamed funds.
+        ImpactProtocolVault ipVault = new ImpactProtocolVault(
             address(streamsHub),
-            address(0),
-            address(ipShares)
+            address(ipShares),
+            "Open Psilocybin Treatment #42 Impact Protocol Vault",
+            "ipSHROOMS"
         );
+        vm.label(address(ipVault), "ImpactProtocolVault");
+        // Researcher stakes their tokens in the vault
+        vm.startPrank(researcher);
+        ipShares.approve(address(ipVault), researcherShares);
+        ipVault.deposit(researcherShares, researcher);
+        assertEq(ipVault.balanceOf(researcher), researcherShares);
         vm.stopPrank();
-        // and ERC20 holders can register their shares for their stream of outcome payments
-        vm.prank(researcher);
-        ipPool.register();
-        vm.prank(investor);
-        ipPool.register();
+        // Investor stakes their token in the vault
+        vm.startPrank(investor);
+        ipShares.approve(address(ipVault), investorShares);
+        ipVault.deposit(investorShares, investor);
+        assertEq(ipVault.balanceOf(investor), investorShares);
+        vm.stopPrank();
 
         // 7. Council assigns Impact Points and receivers
         /// @notice receiver2 and receiver3 represent mocked ipPools
         vm.startPrank(council);
         impactPool.setImpactSplits(
             splitsReceivers(
-                address(ipPool),
+                address(ipVault),
                 50, // Impact Points for Hyper IP NFT
-                receiver2, // regular address mocking IPPool
+                receiver2, // stub for a IPPool for DMT, for example
                 30, // Impact Points for receiver2
-                receiver3, // regular address mocking IPPool
+                receiver3, // stub for a IPPool for LSD, for example
                 20 // Impact Points for receiver3
             )
         );
         vm.stopPrank();
 
-        // 8. After 1 month, Philanthropist starts streaming their donation to the PrizePool
+        // 8. After 1 month, Philanthropist streams donation over 2 months to the PrizePool
+        //    to boost outcome payments
         skip(cycleSeconds);
         vm.startPrank(philanthropist);
         dai.approve(address(streamsHub), donation);
@@ -126,57 +141,56 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
             0,
             dripsReceivers(),
             int128(donation),
-            dripsReceivers(address(prizePool), donation / cycleSeconds)
+            dripsReceivers(address(prizePool), donation / cycleSeconds / 2)
         );
         vm.stopPrank();
 
-        // Fast forward to the end of the stream
+        // Fast forward to the end of all streams
         skip(timePeriodInSeconds - cycleSeconds + 1);
 
         // Verify the PrizePool's collection and streaming of the donation
-        (uint128 prizeCollections, uint128 prizeStreamed) = prizePool.collect();
+        (uint128 prizeHoldings, uint128 prizeFlow) = prizePool.collect();
         assertStreamEq(
-            prizeCollections,
+            prizeHoldings,
             (donation * (10_000 - impactPoolFlowBasisPoints)) / 10_000
         );
         assertStreamEq(
-            prizeStreamed,
+            prizeFlow,
             (donation * impactPoolFlowBasisPoints) / 10_000
         );
         // Verify the Impact Pool's colletion and streaming of outcome payments
-        (uint128 collected, uint128 outcomePaymentsStreamed) = impactPool
+        (uint128 impactHoldings, uint128 outcomePaymentsTotalFlow) = impactPool
             .collect();
-        assertEq(collected, 0);
-        uint128 outcomePaymentsReceived = dripPerSecond *
+        assertEq(impactHoldings, 0); // Impact Pool should not hold any funds
+        uint128 expectedTotalFlowOfOutcomePayments = flowPerSecond *
             timePeriodInSeconds +
             (donation * impactPoolFlowBasisPoints) /
             10_000;
-        assertStreamEq(outcomePaymentsStreamed, outcomePaymentsReceived);
+        assertStreamEq(
+            outcomePaymentsTotalFlow,
+            expectedTotalFlowOfOutcomePayments
+        );
+        // Verify that Hyper IP NFT shareholders received their outcome payments
+        uint128 ipVaultHoldings = ipVault.collect();
+        assertStreamEq(ipVaultHoldings, (outcomePaymentsTotalFlow * 5) / 10);
+        // Verify that the researcher received their share of outcome payments
+        assertStreamEq(
+            ipVault.previewRedeem(researcherShares),
+            (ipVaultHoldings * researcherShares) / 10_000
+        );
+        // Verify that the investor received their share of outcome payments
+        assertStreamEq(
+            ipVault.previewRedeem(investorShares),
+            (ipVaultHoldings * investorShares) / 10_000
+        );
         // Verify that receivers can collect their pro-rata share of outcome payments
         (uint128 r2payout, ) = streamsHub.collect(receiver2, splitsReceivers());
-        assertStreamEq(r2payout, (outcomePaymentsStreamed * 3) / 10);
+        assertStreamEq(r2payout, (outcomePaymentsTotalFlow * 3) / 10);
         (uint128 r3payout, ) = streamsHub.collect(receiver3, splitsReceivers());
-        assertStreamEq(r3payout, (outcomePaymentsStreamed * 2) / 10);
-        // Verify that Hyper IP NFT shareholders received their outcome payments
-        (uint128 collectedIPPayments, uint128 streamedIPPayments) = ipPool
-            .collect();
-        assertEq(collectedIPPayments, 0);
-        assertStreamEq(streamedIPPayments, (outcomePaymentsStreamed * 5) / 10);
-        // Verify that the researcher received their share of outcome payments
-        (uint128 researcherPayout, ) = streamsHub.collect(
-            researcher,
-            splitsReceivers()
-        );
-        assertStreamEq(researcherPayout, (outcomePaymentsStreamed * 45) / 100);
-        // Verify that the researcher received their share of outcome payments
-        (uint128 investorPayout, ) = streamsHub.collect(
-            investor,
-            splitsReceivers()
-        );
-        assertStreamEq(investorPayout, (outcomePaymentsStreamed * 5) / 100);
+        assertStreamEq(r3payout, (outcomePaymentsTotalFlow * 2) / 10);
     }
 
-    function testIPPoolRegistration(
+    function xtestIPPoolRegistration(
         uint16 researcherShares,
         uint16 r1shares,
         uint16 r2shares,
@@ -191,7 +205,7 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
 
         MockERC20 shares = new MockERC20(
             "Open Psilocybin Treatment #42",
-            "MUSHIES",
+            "SHROOMS",
             18
         );
         shares.mint(researcher, researcherShares);
