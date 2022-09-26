@@ -7,7 +7,7 @@ import "./systems/ActorSystem.sol";
 import "./systems/DripsSystem.sol";
 
 import "src/ImpactProtocolVault.sol";
-import "src/IPPool.sol";
+import "src/ImpactProtocolPool.sol";
 
 contract StreamingPrizeTest is ActorSystem, DripsSystem {
     PrizePool internal prizePool;
@@ -91,11 +91,14 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         uint256 investorShares = 9000;
         ipShares.mint(researcher, researcherShares);
         ipShares.mint(investor, investorShares);
-        /// 6. An Impact Protocol Vault is created for shareholders to stake their IP shares
-        /// @notice A share of this vault is a claim on the outcome payments streamed to the vault.
-        /// A share can be redeemed before maturity for a pro-rata share of the accumulated payments at anytime.
-        /// Redeeming your share early before all funds have been streamed gives you liquidity
-        /// but no claim on future streamed funds.
+
+        /// 6a. An Impact Protocol Pool allows shareholders to receive a share of
+        /// 6b. An Impact Protocol Vault allows shareholders to stake their IP shares
+        /// A stake can be redeemed before maturity for a pro-rata share of the accumulated
+        /// payments at anytime. Redeeming your share early before all funds have been streamed
+        /// gives you liquidity but no claim on future streamed funds.
+        ///
+        /// This acts akin to a tradeable bond and enables price discovery in secondary markets.
         ImpactProtocolVault ipVault = new ImpactProtocolVault(
             address(streamsHub),
             address(ipShares),
@@ -123,9 +126,9 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
             splitsReceivers(
                 address(ipVault),
                 50, // Impact Points for Hyper IP NFT
-                receiver2, // stub for a IPPool for DMT, for example
+                receiver2, // stub for a ImpactProtocolPool for DMT, for example
                 30, // Impact Points for receiver2
-                receiver3, // stub for a IPPool for LSD, for example
+                receiver3, // stub for a ImpactProtocolPool for LSD, for example
                 20 // Impact Points for receiver3
             )
         );
@@ -190,33 +193,33 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         assertStreamEq(r3payout, (outcomePaymentsTotalFlow * 2) / 10);
     }
 
-    function xtestIPPoolRegistration(
+    function xtestImpactProtocolPoolRegistration(
         uint16 researcherShares,
-        uint16 r1shares,
-        uint16 r2shares,
-        uint16 r3shares
+        uint16 r1ipShares,
+        uint16 r2ipShares,
+        uint16 r3ipShares
     ) public {
         vm.assume(
             2000 <= researcherShares &&
-                2000 <= r1shares &&
-                2000 <= r2shares &&
-                2000 <= r3shares
+                2000 <= r1ipShares &&
+                2000 <= r2ipShares &&
+                2000 <= r3ipShares
         );
 
-        MockERC20 shares = new MockERC20(
+        MockERC20 ipShares = new MockERC20(
             "Open Psilocybin Treatment #42",
             "SHROOMS",
             18
         );
-        shares.mint(researcher, researcherShares);
-        shares.mint(receiver1, r1shares);
-        shares.mint(receiver2, r2shares);
-        shares.mint(receiver3, r3shares);
+        ipShares.mint(researcher, researcherShares);
+        ipShares.mint(receiver1, r1ipShares);
+        ipShares.mint(receiver2, r2ipShares);
+        ipShares.mint(receiver3, r3ipShares);
 
-        IPPool ipPool = new IPPool(
+        ImpactProtocolPool ipPool = new ImpactProtocolPool(
             address(streamsHub),
             address(0),
-            address(shares)
+            address(ipShares)
         );
 
         vm.prank(researcher);
