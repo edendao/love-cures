@@ -6,7 +6,7 @@ import "solmate/test/utils/mocks/MockERC20.sol";
 import "./systems/ActorSystem.sol";
 import "./systems/DripsSystem.sol";
 
-import "src/HyperIPNFT.sol";
+import "src/IPPool.sol";
 
 contract StreamingPrizeTest is ActorSystem, DripsSystem {
     PrizePool internal prizePool;
@@ -79,9 +79,9 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         );
         hyperIPShares.mint(researcher, 9000);
         hyperIPShares.mint(investor, 1000);
-        // 6. Researcher launches their HyperIPNFT
+        // 6. Researcher launches their IPPool
         vm.startPrank(researcher);
-        HyperIPNFT hyperIPNFT = new HyperIPNFT(
+        IPPool ipPool = new IPPool(
             address(streamsHub),
             address(0),
             address(hyperIPShares)
@@ -89,20 +89,20 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         vm.stopPrank();
         // and ERC20 holders can register their shares for their stream of outcome payments
         vm.prank(researcher);
-        hyperIPNFT.register();
+        ipPool.register();
         vm.prank(investor);
-        hyperIPNFT.register();
+        ipPool.register();
 
         // 7. Council assigns Impact Points and receivers
-        /// @notice receiver2 and receiver3 represent mocked hyperIPNFTs
+        /// @notice receiver2 and receiver3 represent mocked ipPools
         vm.startPrank(council);
         impactPool.setImpactSplits(
             splitsReceivers(
-                address(hyperIPNFT),
+                address(ipPool),
                 50, // Impact Points for Hyper IP NFT
-                receiver2, // regular address mocking HyperIPNFT
+                receiver2, // regular address mocking IPPool
                 30, // Impact Points for receiver2
-                receiver3, // regular address mocking HyperIPNFT
+                receiver3, // regular address mocking IPPool
                 20 // Impact Points for receiver3
             )
         );
@@ -149,7 +149,7 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         (uint128 r3payout, ) = streamsHub.collect(receiver3, splitsReceivers());
         assertStreamEq(r3payout, (outcomePaymentsStreamed * 2) / 10);
         // Verify that Hyper IP NFT shareholders received their outcome payments
-        (uint128 collectedIPPayments, uint128 streamedIPPayments) = hyperIPNFT
+        (uint128 collectedIPPayments, uint128 streamedIPPayments) = ipPool
             .collect();
         assertEq(collectedIPPayments, 0);
         assertStreamEq(streamedIPPayments, (outcomePaymentsStreamed * 5) / 10);
@@ -167,12 +167,12 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         assertStreamEq(investorPayout, (outcomePaymentsStreamed * 5) / 100);
     }
 
-    function testHyperIPNFTRegistration(
+    function testIPPoolRegistration(
         uint16 researcherShares,
         uint16 r1shares,
         uint16 r2shares,
         uint16 r3shares
-    ) public returns (HyperIPNFT hyperIPNFT) {
+    ) public returns (IPPool ipPool) {
         vm.assume(
             2000 <= researcherShares &&
                 2000 <= r1shares &&
@@ -190,20 +190,16 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         shares.mint(receiver2, r2shares);
         shares.mint(receiver3, r3shares);
 
-        hyperIPNFT = new HyperIPNFT(
-            address(streamsHub),
-            address(0),
-            address(shares)
-        );
+        ipPool = new IPPool(address(streamsHub), address(0), address(shares));
 
         vm.prank(researcher);
-        hyperIPNFT.register();
+        ipPool.register();
         vm.prank(receiver1);
-        hyperIPNFT.register();
+        ipPool.register();
         vm.prank(receiver2);
-        hyperIPNFT.register();
+        ipPool.register();
         vm.prank(receiver3);
-        hyperIPNFT.register();
+        ipPool.register();
     }
 
     function testOpsCannotChangeStreamWhileLocked(uint8 factor) public {

@@ -186,7 +186,7 @@ abstract contract JuiceboxSystem is Test {
         );
     }
 
-    function createHyperIPNFTPool(uint256 hypercertTokensPerETH)
+    function createIPPoolPool(uint256 hypercertTokensPerETH)
         internal
         returns (uint256 poolId)
     {

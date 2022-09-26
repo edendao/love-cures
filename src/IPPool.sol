@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./mixins/ERC20StreamsNode.sol";
 
-contract HyperIPNFT is ERC20StreamsNode {
+contract IPPool is ERC20StreamsNode {
     IERC20 public immutable sharesERC20; // Must be a non-transferrable ERC20
     uint256 public registrations;
 
