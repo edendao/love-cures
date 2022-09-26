@@ -33,14 +33,14 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
      * from the Prize Pool to Impactful Research.
      */
     function testStreamingPrize(
-        uint8 initialPrizeFactor, // 1–255
-        uint8 cycles, // 6–255
-        uint8 impactPoolFlowFactor, // 1–255
-        uint8 donationFactor // 1–255
+        uint8 initialPrizeFactor, // 1–255 * $1B
+        uint8 months, // 6–255
+        uint8 impactPoolFlowFactor, // 1–255 * 39 basis points
+        uint8 donationFactor // 1–255 * $100K
     ) public {
         vm.assume(
             0 < initialPrizeFactor &&
-                6 <= cycles &&
+                6 <= months &&
                 0 < impactPoolFlowFactor &&
                 0 < donationFactor
         );
@@ -48,13 +48,13 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         uint128 initialPrizeFunding = uint128(initialPrizeFactor) *
             1_000_000_000 ether;
         // Streams up to 21.25 years long
-        uint64 timePeriodInSeconds = uint64(cycles) * cycleSeconds;
+        uint64 timePeriodInSeconds = uint64(months) * cycleSeconds;
         // Flow rates of up to 99.45%
         uint16 impactPoolFlowBasisPoints = uint16(impactPoolFlowFactor) * 39;
-        // Donation of up to $2,550,000 while the stream is in progress, normalized to cycleSeconds
+        // Donation of up to $2,550,000 while the stream is in progress
         uint128 donation = (uint128(donationFactor) *
             10_000 ether *
-            cycleSeconds) / cycleSeconds;
+            cycleSeconds) / cycleSeconds; // normalized to cycleSeconds
 
         uint128 dripPerSecond = uint128(
             (initialPrizeFunding * impactPoolFlowBasisPoints) /

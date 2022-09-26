@@ -106,7 +106,7 @@ contract ERC20StreamsNode is Auth {
     /// Must be sorted by the receivers' addresses, deduplicated and without 0 amtPerSecs.
     /// @return newBalance The new drips balance of the node.
     /// @return realBalanceDelta The actually applied drips balance change.
-    function _setDrips(uint128 totalDrip, DripsReceiver[] memory newReceivers)
+    function _setDrips(int128 totalDrip, DripsReceiver[] memory newReceivers)
         internal
         returns (uint128 newBalance, int128 realBalanceDelta)
     {
@@ -116,7 +116,7 @@ contract ERC20StreamsNode is Auth {
             DripsReceiver[] memory currReceivers
         ) = currentDrips();
 
-        int128 balanceDelta = int128(totalDrip) - int128(lastBalance);
+        int128 balanceDelta = totalDrip - int128(lastBalance);
         if (balanceDelta > 0) {
             dripsHub.erc20().approve(address(dripsHub), uint128(balanceDelta));
         }

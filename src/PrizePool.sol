@@ -24,7 +24,7 @@ contract PrizePool is ERC20StreamsNode {
     function streamTo(
         address receiverAddress,
         uint16 flowBasisPoints,
-        uint64 lockTimeInSeconds
+        uint64 periodInSeconds
     )
         external
         requiresAuth
@@ -40,16 +40,16 @@ contract PrizePool is ERC20StreamsNode {
             receiverAddress != address(0) && flowBasisPoints != 0,
             "INVALID_CONFIG"
         );
-        lockedUntil = block.timestamp + lockTimeInSeconds;
+        lockedUntil = block.timestamp + periodInSeconds;
 
         // Drip until `lockedUntil`
         uint128 dripPerSecond = uint128(
-            (balance() * flowBasisPoints) / (lockTimeInSeconds * 10000)
+            (balance() * flowBasisPoints) / (periodInSeconds * 10000)
         );
         DripsReceiver[] memory newDrips = new DripsReceiver[](1);
         newDrips[0] = DripsReceiver(receiverAddress, dripPerSecond);
         (newBalance, realBalanceDelta) = _setDrips(
-            dripPerSecond * lockTimeInSeconds,
+            int128(dripPerSecond * periodInSeconds),
             newDrips
         );
 
