@@ -64,6 +64,10 @@ abstract contract StreamingSystem is Test {
         uint128 amtPerSec2
     ) internal pure returns (DripsReceiver[] memory list) {
         list = new DripsReceiver[](2);
+        if (user1 > user2) {
+            (user1, user2) = (user2, user1);
+            (amtPerSec1, amtPerSec2) = (amtPerSec2, amtPerSec1);
+        }
         list[0] = DripsReceiver(user1, amtPerSec1);
         list[1] = DripsReceiver(user2, amtPerSec2);
     }
@@ -92,6 +96,10 @@ abstract contract StreamingSystem is Test {
         uint32 weight2
     ) internal pure returns (SplitsReceiver[] memory list) {
         list = new SplitsReceiver[](2);
+        if (user1 > user2) {
+            (user1, user2) = (user2, user1);
+            (weight1, weight2) = (weight2, weight1);
+        }
         list[0] = SplitsReceiver(user1, weight1);
         list[1] = SplitsReceiver(user2, weight2);
     }
@@ -105,6 +113,18 @@ abstract contract StreamingSystem is Test {
         uint32 weight3
     ) internal pure returns (SplitsReceiver[] memory list) {
         list = new SplitsReceiver[](3);
+        if (user1 > user2) {
+            (user1, user2) = (user2, user1);
+            (weight1, weight2) = (weight2, weight1);
+        }
+        if (user2 > user3) {
+            (user2, user3) = (user3, user2);
+            (weight2, weight3) = (weight3, weight2);
+        }
+        if (user1 > user2) {
+            (user1, user2) = (user2, user1);
+            (weight1, weight2) = (weight2, weight1);
+        }
         list[0] = SplitsReceiver(user1, weight1);
         list[1] = SplitsReceiver(user2, weight2);
         list[2] = SplitsReceiver(user3, weight3);

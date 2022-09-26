@@ -2,12 +2,26 @@
 pragma solidity ^0.8.0;
 
 import "drips-contracts/ERC20DripsHub.sol";
+import "solmate/auth/Auth.sol";
+import "solmate/tokens/ERC20.sol";
+import "solmate/utils/SafeTransferLib.sol";
 
-contract ERC20StreamsNode {
+contract ERC20StreamsNode is Auth {
     ERC20DripsHub internal immutable dripsHub;
 
-    constructor(ERC20DripsHub _dripsHub) {
-        dripsHub = _dripsHub;
+    constructor(address _dripsHub, address _authority)
+        Auth(msg.sender, Authority(_authority))
+    {
+        dripsHub = ERC20DripsHub(_dripsHub);
+    }
+
+    // Withdrawal functions for recovering accidentally sent ERC20
+    function withdrawTokenTo(
+        address token,
+        address to,
+        uint256 amount
+    ) external requiresAuth {
+        SafeTransferLib.safeTransfer(ERC20(token), to, amount);
     }
 
     function balance() public view returns (uint256) {
@@ -140,5 +154,34 @@ contract ERC20StreamsNode {
         );
 
         encodedCurrentSplitsReceivers = abi.encode(newReceivers);
+    }
+
+    /// @notice Exactly like _setSplits except that it will normalize weights
+    function _normalizeAndSetSplits(SplitsReceiver[] memory newReceivers)
+        internal
+        returns (uint128 collected, uint128 split)
+    {
+        uint32 totalWeight = dripsHub.TOTAL_SPLITS_WEIGHT();
+        uint256 totalInputWeight = 0;
+
+        for (uint256 i = 0; i < newReceivers.length; ) {
+            totalInputWeight += newReceivers[i].weight;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        for (uint256 i = 0; i < newReceivers.length; ) {
+            newReceivers[i].weight = uint32(
+                (newReceivers[i].weight * totalWeight) / totalInputWeight
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        (collected, split) = _setSplits(newReceivers);
     }
 }

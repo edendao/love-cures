@@ -10,4 +10,5 @@ juice-contracts-v3/=lib/juice-contracts-v3/contracts/
 openzeppelin-contracts/=lib/drips-contracts/lib/openzeppelin-contracts/contracts/
 openzeppelin-contracts/contracts/=lib/juice-contracts-v3/lib/openzeppelin-contracts/contracts/
 prb-math/=lib/juice-contracts-v3/lib/prb-math/
+solidity-linked-list/=lib/solidity-linked-list/contracts/
 solmate/=lib/solmate/src/

@@ -12,9 +12,8 @@ contract JuiceboxPrizeTest is ActorSystem, JuiceboxSystem {
 
     function testJuiceboxPrizePool() public {
         // 1. Council forms permissionlessly and creates a Distribution Pool
-
-        // Doing this first saves 1 transaction because then the Prize Pool
-        // can be initialized with an outflow to the distribution pool.
+        // Note: This is not required, but doing this first saves 1 transaction
+        // because then the Prize Pool can be initialized with an outflow to the distribution pool.
         vm.startPrank(council);
         uint256 distributionPoolProjectId = createDistributionPool();
         vm.stopPrank();

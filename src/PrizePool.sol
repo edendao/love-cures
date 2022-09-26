@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: UNLICENSE
 pragma solidity ^0.8.0;
 
-import "openzeppelin-contracts/interfaces/IERC1155.sol";
-import "solmate/auth/Auth.sol";
-
 import "./mixins/ERC20StreamsNode.sol";
 
 /*
@@ -13,12 +10,11 @@ import "./mixins/ERC20StreamsNode.sol";
  * After setting the Stream, additional inflows will flow through to the receiver.
  * Only after the lock has expired, an authorized party can create a new Stream.
  */
-contract PrizePool is ERC20StreamsNode, Auth {
+contract PrizePool is ERC20StreamsNode {
     uint256 public lockedUntil;
 
     constructor(address _dripsHub, address _authority)
-        ERC20StreamsNode(ERC20DripsHub(_dripsHub))
-        Auth(msg.sender, Authority(_authority))
+        ERC20StreamsNode(_dripsHub, _authority)
     {}
 
     /*
