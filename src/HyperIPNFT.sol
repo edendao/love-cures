@@ -24,67 +24,84 @@ contract HyperIPNFT is ERC20StreamsNode {
     }
 
     address internal firstNodeAccount;
-    mapping(address => Node) internal registrations;
-    uint256 public registeredCount;
+    mapping(address => Node) internal nodes;
+    uint256 public registrations;
+
+    function register(address[] memory accounts) external requiresAuth {
+        uint256 count = accounts.length;
+        require(count > 0, "EMPTY_LIST");
+        for (uint256 i = 0; i < count; ) {
+            _register(accounts[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
 
     function register() external {
-        address shareholder = msg.sender;
+        _register(msg.sender);
+    }
+
+    function _register(address shareholder) internal {
         uint256 shares = sharesERC20.balanceOf(shareholder);
 
-        require(0 < shares, "INVARIANT");
-        require(registrations[shareholder].shares != shares, "NO_UPDATE");
+        require(shares > 0, "INVALID_SHAREHOLDER");
+        require(nodes[shareholder].shares != shares, "NO_UPDATE");
 
-        registrations[shareholder].account = shareholder;
-        registrations[shareholder].shares = shares;
+        nodes[shareholder].account = shareholder;
+        nodes[shareholder].shares = shares;
         emit Registered(shareholder, shares);
 
         if (firstNodeAccount == address(0)) {
             firstNodeAccount = shareholder;
             unchecked {
-                ++registeredCount;
+                ++registrations;
             }
         } else if (shareholder < firstNodeAccount) {
-            registrations[shareholder].next = firstNodeAccount;
+            nodes[shareholder].next = firstNodeAccount;
             firstNodeAccount = shareholder;
             unchecked {
-                ++registeredCount;
+                ++registrations;
             }
         } else {
-            Node storage previousNode = registrations[firstNodeAccount];
+            Node storage previousNode = nodes[firstNodeAccount];
             Node storage node = previousNode;
             while (node.next != address(0) && node.account < shareholder) {
                 previousNode = node;
-                node = registrations[node.next];
+                node = nodes[node.next];
             }
             if (node.account != shareholder) {
                 if (shareholder < node.account) {
                     previousNode.next = shareholder;
-                    registrations[shareholder].next = node.account;
+                    nodes[shareholder].next = node.account;
                 } else {
                     node.next = shareholder;
                 }
                 unchecked {
-                    ++registeredCount;
+                    ++registrations;
                 }
             }
         }
 
         SplitsReceiver[] memory newReceivers = new SplitsReceiver[](
-            registeredCount
+            registrations
         );
         uint256 i = 0;
         uint256 totalSupply = sharesERC20.totalSupply();
         uint32 maxTotalWeight = dripsHub.TOTAL_SPLITS_WEIGHT();
 
         for (
-            Node memory node = registrations[firstNodeAccount];
+            Node memory node = nodes[firstNodeAccount];
             node.account != address(0);
-            node = registrations[node.next]
+            node = nodes[node.next]
         ) {
-            newReceivers[i++] = SplitsReceiver(
+            newReceivers[i] = SplitsReceiver(
                 node.account,
                 uint32((maxTotalWeight * node.shares) / totalSupply)
             );
+            unchecked {
+                ++i;
+            }
         }
 
         _setSplits(newReceivers);
