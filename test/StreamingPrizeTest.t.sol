@@ -30,28 +30,28 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
 
     function testExampleStreamingPrize() public {
         testStreamingPrize({
-            initialPrizeFactor: 1, // $1B initial prize pool
+            initialPrizeFactor: 1, // $1M initial prize pool
             months: 12,
             impactPoolFlowFactor: 51, // 19.89%
-            donationFactor: 10 // $1M donation
+            donationFactor: 1 // $1M donation
         });
     }
 
     function testStreamingPrize(
-        uint8 initialPrizeFactor, // 1–255 * $1B
+        uint8 initialPrizeFactor, // 1–255 * $1M
         uint8 months, // 6–255
         uint8 impactPoolFlowFactor, // 1–255 * 39 basis points
         uint8 donationFactor // 1–255 * $100K
     ) public {
         vm.assume(
             0 < initialPrizeFactor &&
-                6 <= months &&
+                3 <= months &&
                 0 < impactPoolFlowFactor &&
                 0 < donationFactor
         );
-        // Prize pools up to $225B
+        // Prize pools up to $225M
         uint128 initialPrizeFunding = uint128(initialPrizeFactor) *
-            1_000_000_000 ether;
+            1_000_000 ether;
         // Streams up to 21.25 years long
         uint64 timePeriodInSeconds = uint64(months) * cycleSeconds;
         // Flow rates of up to 99.45%
@@ -189,20 +189,20 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
                 2000 <= r3shares
         );
 
-        MockERC20 ipShares = new MockERC20(
+        MockERC20 shares = new MockERC20(
             "Open Psilocybin Treatment #42",
             "MUSHIES",
             18
         );
-        ipShares.mint(researcher, researcherShares);
-        ipShares.mint(receiver1, r1shares);
-        ipShares.mint(receiver2, r2shares);
-        ipShares.mint(receiver3, r3shares);
+        shares.mint(researcher, researcherShares);
+        shares.mint(receiver1, r1shares);
+        shares.mint(receiver2, r2shares);
+        shares.mint(receiver3, r3shares);
 
         IPPool ipPool = new IPPool(
             address(streamsHub),
             address(0),
-            address(ipShares)
+            address(shares)
         );
 
         vm.prank(researcher);
