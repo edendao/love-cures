@@ -44,8 +44,8 @@ contract JuiceboxPrizeTest is ActorSystem, JuiceboxSystem {
         }
 
         // 2. Researcher creates a project to fractionalize the Hyper IP NFT
-        uint256 ipPoolTokensPerETH = 1000 * 1 ether; // 1,000 tokens per ETH
-        uint256 ipPoolPoolId = createIPPoolPool(ipPoolTokensPerETH);
+        uint256 ipSplitterTokensPerETH = 1000 * 1 ether; // 1,000 tokens per ETH
+        uint256 ipSplitterPoolId = createIPPoolPool(ipSplitterTokensPerETH);
         vm.stopPrank();
 
         {
@@ -53,10 +53,10 @@ contract JuiceboxPrizeTest is ActorSystem, JuiceboxSystem {
             vm.startPrank(investor);
             uint256 investment = 10 ether;
             uint256 expectedInvestmentTokens = (investment *
-                ipPoolTokensPerETH) / 1 ether; // normalize
+                ipSplitterTokensPerETH) / 1 ether; // normalize
 
             this.pay{value: investment}(
-                ipPoolPoolId,
+                ipSplitterPoolId,
                 investment,
                 ETH,
                 expectedInvestmentTokens,

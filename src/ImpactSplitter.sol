@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./mixins/ERC20StreamsNode.sol";
 
-contract ImpactPool is ERC20StreamsNode {
+contract ImpactSplitter is ERC20StreamsNode {
     constructor(address _dripsHub, address _authority)
         ERC20StreamsNode(_dripsHub, _authority)
     {}

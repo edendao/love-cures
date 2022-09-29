@@ -42,7 +42,6 @@ contract PrizePool is ERC20StreamsNode {
         );
         lockedUntil = block.timestamp + periodInSeconds;
 
-        // Drip until `lockedUntil`
         uint128 dripPerSecond = uint128(
             (balance() * flowBasisPoints) / (periodInSeconds * 10000)
         );

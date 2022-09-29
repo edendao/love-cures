@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "drips-contracts/IDai.sol";
 import "drips-contracts/ERC20DripsHub.sol";
 
-import "src/ImpactPool.sol";
+import "src/ImpactSplitter.sol";
 import "src/PrizePool.sol";
 
 abstract contract DripsSystem is Test {

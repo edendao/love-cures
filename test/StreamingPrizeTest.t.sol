@@ -7,11 +7,11 @@ import "./systems/ActorSystem.sol";
 import "./systems/DripsSystem.sol";
 
 import "src/ImpactProtocolVault.sol";
-import "src/ImpactProtocolPool.sol";
+import "src/ImpactProtocolSplitter.sol";
 
 contract StreamingPrizeTest is ActorSystem, DripsSystem {
     PrizePool internal prizePool;
-    ImpactPool internal impactPool;
+    ImpactSplitter internal impactSplitter;
 
     function setUp() public override(ActorSystem, DripsSystem) {
         DripsSystem.setUp();
@@ -24,16 +24,16 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         prizePool = new PrizePool(address(streamsHub), address(0));
         prizePool.setOwner(ops);
 
-        // 2. Council sets up and manages their own ImpactPool
-        impactPool = new ImpactPool(address(streamsHub), address(0));
-        impactPool.setOwner(council);
+        // 2. Council sets up and manages their own ImpactSplitter
+        impactSplitter = new ImpactSplitter(address(streamsHub), address(0));
+        impactSplitter.setOwner(council);
     }
 
     function testDemoStreamingPrize() public {
         testFuzzStreamingPrize({
             initialPrizeFactor: 10, // $10M initial prize pool
             months: 12,
-            impactPoolFlowFactor: 51, // 19.89%
+            impactSplitterFlowFactor: 51, // 19.89%
             donationFactor: 10 // $1M donation
         });
     }
@@ -41,13 +41,13 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
     function testFuzzStreamingPrize(
         uint8 initialPrizeFactor, // 1–255 * $1M
         uint8 months, // 6–255
-        uint8 impactPoolFlowFactor, // 1–255 * 39 basis points
+        uint8 impactSplitterFlowFactor, // 1–255 * 39 basis points
         uint8 donationFactor // 1–255 * $100K
     ) public {
         vm.assume(
             0 < initialPrizeFactor &&
                 3 <= months &&
-                0 < impactPoolFlowFactor &&
+                0 < impactSplitterFlowFactor &&
                 0 < donationFactor
         );
         // Prize pools up to $225M
@@ -56,14 +56,16 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         // Streams up to 21.25 years long
         uint64 timePeriodInSeconds = uint64(months) * cycleSeconds;
         // Flow rates of 0.39–99.45%
-        uint16 impactPoolFlowBasisPoints = uint16(impactPoolFlowFactor) * 39;
+        uint16 impactSplitterFlowBasisPoints = uint16(
+            impactSplitterFlowFactor
+        ) * 39;
         // Donation of up to $25,550,000 while the stream is in progress
         uint128 donation = (uint128(donationFactor) *
             100_000 ether *
             cycleSeconds) / cycleSeconds; // normalized to cycleSeconds
 
         uint128 flowPerSecond = uint128(
-            (initialPrizeFunding * impactPoolFlowBasisPoints) /
+            (initialPrizeFunding * impactSplitterFlowBasisPoints) /
                 (timePeriodInSeconds * 10_000)
         );
         vm.assume(0 < flowPerSecond);
@@ -71,11 +73,11 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         // 3. Fund the PrizePool contract
         giveDaiTo(address(prizePool), initialPrizeFunding);
 
-        // 4. Ops sets up the stream to the ImpactPool
+        // 4. Ops sets up the stream to the ImpactSplitter
         vm.startPrank(ops);
         prizePool.streamTo(
-            address(impactPool),
-            impactPoolFlowBasisPoints,
+            address(impactSplitter),
+            impactSplitterFlowBasisPoints,
             timePeriodInSeconds
         );
         vm.stopPrank();
@@ -120,15 +122,15 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         vm.stopPrank();
 
         // 7. Council assigns Impact Points and receivers
-        /// @notice receiver2 and receiver3 represent mocked ipPools
+        /// @notice receiver2 and receiver3 represent mocked ipSplitters
         vm.startPrank(council);
-        impactPool.setImpactSplits(
+        impactSplitter.setImpactSplits(
             splitsReceivers(
                 address(ipVault),
                 50, // Impact Points for Hyper IP NFT
-                receiver2, // stub for a ImpactProtocolPool for DMT, for example
+                receiver2, // stub for a ImpactProtocolSplitter for DMT, for example
                 30, // Impact Points for receiver2
-                receiver3, // stub for a ImpactProtocolPool for LSD, for example
+                receiver3, // stub for a ImpactProtocolSplitter for LSD, for example
                 20 // Impact Points for receiver3
             )
         );
@@ -155,19 +157,21 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         (uint128 prizeHoldings, uint128 prizeFlow) = prizePool.collect();
         assertStreamEq(
             prizeHoldings,
-            (donation * (10_000 - impactPoolFlowBasisPoints)) / 10_000
+            (donation * (10_000 - impactSplitterFlowBasisPoints)) / 10_000
         );
         assertStreamEq(
             prizeFlow,
-            (donation * impactPoolFlowBasisPoints) / 10_000
+            (donation * impactSplitterFlowBasisPoints) / 10_000
         );
         // Verify the Impact Pool's colletion and streaming of outcome payments
-        (uint128 impactHoldings, uint128 outcomePaymentsTotalFlow) = impactPool
-            .collect();
+        (
+            uint128 impactHoldings,
+            uint128 outcomePaymentsTotalFlow
+        ) = impactSplitter.collect();
         assertEq(impactHoldings, 0); // Impact Pool should not hold any funds
         uint128 expectedTotalFlowOfOutcomePayments = flowPerSecond *
             timePeriodInSeconds +
-            (donation * impactPoolFlowBasisPoints) /
+            (donation * impactSplitterFlowBasisPoints) /
             10_000;
         assertStreamEq(
             outcomePaymentsTotalFlow,
@@ -193,7 +197,7 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         assertStreamEq(r3payout, (outcomePaymentsTotalFlow * 2) / 10);
     }
 
-    function xtestImpactProtocolPoolRegistration(
+    function xtestImpactProtocolSplitterRegistration(
         uint16 researcherShares,
         uint16 r1ipShares,
         uint16 r2ipShares,
@@ -216,20 +220,20 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         ipShares.mint(receiver2, r2ipShares);
         ipShares.mint(receiver3, r3ipShares);
 
-        ImpactProtocolPool ipPool = new ImpactProtocolPool(
+        ImpactProtocolSplitter ipSplitter = new ImpactProtocolSplitter(
             address(streamsHub),
             address(0),
             address(ipShares)
         );
 
         vm.prank(researcher);
-        ipPool.register();
+        ipSplitter.register();
         vm.prank(receiver1);
-        ipPool.register();
+        ipSplitter.register();
         vm.prank(receiver2);
-        ipPool.register();
+        ipSplitter.register();
         vm.prank(receiver3);
-        ipPool.register();
+        ipSplitter.register();
     }
 
     function testOpsCannotChangeStreamWhileLocked(uint8 factor) public {
@@ -239,13 +243,13 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         giveDaiTo(address(prizePool), 1_000_000 ether); // $1M
 
         vm.startPrank(ops);
-        prizePool.streamTo(address(impactPool), 1000, timelock);
+        prizePool.streamTo(address(impactSplitter), 1000, timelock);
 
         vm.expectRevert("STREAM_LOCKED");
-        prizePool.streamTo(address(impactPool), 1000, timelock);
+        prizePool.streamTo(address(impactSplitter), 1000, timelock);
 
         skip(timelock + 5 minutes);
-        prizePool.streamTo(address(impactPool), 1000, timelock);
+        prizePool.streamTo(address(impactSplitter), 1000, timelock);
         vm.stopPrank();
     }
 }
