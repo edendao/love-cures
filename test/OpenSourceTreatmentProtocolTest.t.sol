@@ -16,7 +16,7 @@ contract OpenSourceTreatmentProtocolTest is ActorSystem {
         ActorSystem.setUp();
 
         ip = new IntellectualProperty(address(0));
-        ip.setOwner(council);
+        ip.setOwner(committee);
         rct = new RandomizedControledTrial(address(0), address(ip));
         rct.setOwner(evaluator);
     }
@@ -34,7 +34,7 @@ contract OpenSourceTreatmentProtocolTest is ActorSystem {
         );
         assertEq(uint256(rctState), uint256(IntellectualProperty.RCT.PROPOSED));
 
-        vm.prank(council);
+        vm.prank(committee);
         ip.approveTreatmentProtocol(ipID);
 
         (hypothesisState, rctState) = ip.stateOf(ipID);
@@ -49,7 +49,7 @@ contract OpenSourceTreatmentProtocolTest is ActorSystem {
 
         assertEq(rct.impactOf(ipID), 6);
 
-        vm.prank(council);
+        vm.prank(committee);
         ip.updateHypothesis(ipID, IntellectualProperty.Hypothesis.PROVED);
 
         (hypothesisState, rctState) = ip.stateOf(ipID);

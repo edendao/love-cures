@@ -8,6 +8,8 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import "drips-contracts/ERC20DripsHub.sol";
 
 // Based on the reference implementation for ERC4626 by transmissions1
+// Exchanges the fundraising IP shares deposited for a bond token that can be
+// redeemed for a share of vault assets.
 contract ImpactProtocolVault is ERC20 {
     using SafeTransferLib for ERC20;
     using FixedPointMathLib for uint256;

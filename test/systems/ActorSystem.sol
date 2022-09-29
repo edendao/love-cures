@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 abstract contract ActorSystem is Test {
     // These can be an End Owner Account (e.g. MetaMask / Social Sign In), Multisig, or Contract
-    address internal council;
+    address internal committee;
     address internal evaluator;
     address internal investor;
     address internal ops;
@@ -17,7 +17,7 @@ abstract contract ActorSystem is Test {
     address internal receiver3;
 
     function setUp() public virtual {
-        council = createActor("council", 100 ether);
+        committee = createActor("committee", 100 ether);
         evaluator = createActor("evaluator", 100 ether);
         investor = createActor("investor", 100 ether);
         ops = createActor("ops", 100 ether);

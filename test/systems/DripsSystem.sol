@@ -10,6 +10,7 @@ import "src/PrizePool.sol";
 
 abstract contract DripsSystem is Test {
     ERC20DripsHub internal streamsHub;
+    address internal streamsHubAddress;
     IDai internal dai;
     uint64 internal cycleSeconds;
 
@@ -17,6 +18,7 @@ abstract contract DripsSystem is Test {
         vm.createSelectFork("mainnet", 15600000);
 
         streamsHub = ERC20DripsHub(0x73043143e0A6418cc45d82D4505B096b802FD365);
+        streamsHubAddress = address(streamsHub);
         vm.label(address(streamsHub), "DaiDripsHub");
 
         dai = IDai(address(streamsHub.erc20()));

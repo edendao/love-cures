@@ -10,123 +10,229 @@ import "src/ImpactProtocolVault.sol";
 import "src/ImpactProtocolSplitter.sol";
 
 contract StreamingPrizeTest is ActorSystem, DripsSystem {
-    PrizePool internal prizePool;
-    ImpactSplitter internal impactSplitter;
-
     function setUp() public override(ActorSystem, DripsSystem) {
         DripsSystem.setUp();
         ActorSystem.setUp();
-
-        // Give the Philanthropist $100M
-        giveDaiTo(philanthropist, 100_000_000 ether);
-
-        // 1. Ops sets up and manages their own PrizePool
-        prizePool = new PrizePool(address(streamsHub), address(0));
-        prizePool.setOwner(ops);
-
-        // 2. Council sets up and manages their own ImpactSplitter
-        impactSplitter = new ImpactSplitter(address(streamsHub), address(0));
-        impactSplitter.setOwner(council);
     }
 
-    function testDemoStreamingPrize() public {
-        testFuzzStreamingPrize({
-            initialPrizeFactor: 10, // $10M initial prize pool
-            months: 12,
-            impactSplitterFlowFactor: 51, // 19.89%
-            donationFactor: 10 // $1M donation
-        });
-    }
+    function testOpsCannotChangeStreamWhileLocked(uint8 factor) public {
+        vm.assume(0 < factor);
+        uint64 timelock = uint64(factor) * 24 hours;
 
-    function testFuzzStreamingPrize(
-        uint8 initialPrizeFactor, // 1–255 * $1M
-        uint8 months, // 6–255
-        uint8 impactSplitterFlowFactor, // 1–255 * 39 basis points
-        uint8 donationFactor // 1–255 * $100K
-    ) public {
-        vm.assume(
-            0 < initialPrizeFactor &&
-                3 <= months &&
-                0 < impactSplitterFlowFactor &&
-                0 < donationFactor
-        );
-        // Prize pools up to $225M
-        uint128 initialPrizeFunding = uint128(initialPrizeFactor) *
-            1_000_000 ether;
-        // Streams up to 21.25 years long
-        uint64 timePeriodInSeconds = uint64(months) * cycleSeconds;
-        // Flow rates of 0.39–99.45%
-        uint16 impactSplitterFlowBasisPoints = uint16(
-            impactSplitterFlowFactor
-        ) * 39;
-        // Donation of up to $25,550,000 while the stream is in progress
-        uint128 donation = (uint128(donationFactor) *
-            100_000 ether *
-            cycleSeconds) / cycleSeconds; // normalized to cycleSeconds
+        (
+            PrizePool prize,
+            ImpactSplitter splitter
+        ) = _createPrizePoolAndImpactSplitter();
 
-        uint128 flowPerSecond = uint128(
-            (initialPrizeFunding * impactSplitterFlowBasisPoints) /
-                (timePeriodInSeconds * 10_000)
-        );
-        vm.assume(0 < flowPerSecond);
+        giveDaiTo(address(prize), 1_000_000 ether); // $1M
 
-        // 3. Fund the PrizePool contract
-        giveDaiTo(address(prizePool), initialPrizeFunding);
-
-        // 4. Ops sets up the stream to the ImpactSplitter
         vm.startPrank(ops);
-        prizePool.streamTo(
-            address(impactSplitter),
-            impactSplitterFlowBasisPoints,
-            timePeriodInSeconds
-        );
-        vm.stopPrank();
+        prize.streamTo(address(splitter), 1000, timelock);
 
-        // 5. Researcher raises funds using Syndicate DAO or any other ERC20 platform
-        /// @notice MockERC20 represents the token that fractionalize their Hyper IP NFT
-        MockERC20 ipShares = new MockERC20(
+        vm.expectRevert("STREAM_LOCKED");
+        prize.streamTo(address(splitter), 1000, timelock);
+
+        skip(timelock + 5 minutes);
+        prize.streamTo(address(splitter), 1000, timelock);
+        vm.stopPrank();
+    }
+
+    function _createPrizePoolAndImpactSplitter()
+        internal
+        returns (PrizePool prize, ImpactSplitter splitter)
+    {
+        // 1. Ops sets up and manages their own PrizePool
+        prize = new PrizePool(streamsHubAddress, address(0));
+        prize.setOwner(ops);
+
+        // 2. Committee sets up and manages their own ImpactSplitter
+        splitter = new ImpactSplitter(streamsHubAddress, address(0));
+        splitter.setOwner(committee);
+    }
+
+    function _createImpactProtocolVaultAndStake(
+        uint256 researcherShares,
+        uint256 investorShares
+    ) internal returns (MockERC20 ipShares, ImpactProtocolVault vault) {
+        ipShares = new MockERC20(
             "Open Psilocybin Treatment #42",
             "SHROOMS",
             18
         );
-        uint256 researcherShares = 1000;
-        uint256 investorShares = 9000;
         ipShares.mint(researcher, researcherShares);
         ipShares.mint(investor, investorShares);
 
-        /// 6a. An Impact Protocol Pool allows shareholders to receive a share of
-        /// 6b. An Impact Protocol Vault allows shareholders to stake their IP shares
-        /// A stake can be redeemed before maturity for a pro-rata share of the accumulated
-        /// payments at anytime. Redeeming your share early before all funds have been streamed
-        /// gives you liquidity but no claim on future streamed funds.
-        ///
-        /// This acts akin to a tradeable bond and enables price discovery in secondary markets.
-        ImpactProtocolVault ipVault = new ImpactProtocolVault(
-            address(streamsHub),
+        vault = new ImpactProtocolVault(
+            streamsHubAddress,
             address(ipShares),
             "Open Psilocybin Treatment #42 Impact Protocol Vault",
             "ipSHROOMS"
         );
-        vm.label(address(ipVault), "ImpactProtocolVault");
+        address vaultAddress = address(vault);
+        vm.label(vaultAddress, "ImpactProtocolVault");
         // Researcher stakes their tokens in the vault
         vm.startPrank(researcher);
-        ipShares.approve(address(ipVault), researcherShares);
-        ipVault.deposit(researcherShares, researcher);
-        assertEq(ipVault.balanceOf(researcher), researcherShares);
+        ipShares.approve(vaultAddress, researcherShares);
+        vault.deposit(researcherShares, researcher);
+        assertEq(vault.balanceOf(researcher), researcherShares);
         vm.stopPrank();
         // Investor stakes their token in the vault
         vm.startPrank(investor);
-        ipShares.approve(address(ipVault), investorShares);
-        ipVault.deposit(investorShares, investor);
-        assertEq(ipVault.balanceOf(investor), investorShares);
+        ipShares.approve(vaultAddress, investorShares);
+        vault.deposit(investorShares, investor);
+        assertEq(vault.balanceOf(investor), investorShares);
         vm.stopPrank();
+    }
 
-        // 7. Council assigns Impact Points and receivers
+    function testPrizePoolCorrectnessGoToMarket() public {
+        (
+            PrizePool openLongevityPrizePool,
+            ImpactSplitter openLongevityImpactSplitter
+        ) = _createPrizePoolAndImpactSplitter();
+
+        _verifyFlows({
+            prizePool: openLongevityPrizePool,
+            impactSplitter: openLongevityImpactSplitter,
+            timePeriodInSeconds: 365 days,
+            // $10M
+            prizePoolFunding: 10_000_000 ether,
+            // 20% annual flow
+            flowToImpactBasisPoints: 2_000,
+            // Surprise $250K donation during over the year from another source
+            donation: 250_000 ether,
+            researcherShares: 1000,
+            investorShares: 9000
+        });
+    }
+
+    function testPrizePoolCorrectnessMillions(
+        uint8 initialPrizeFactor,
+        uint8 months,
+        uint8 flowToImpactFactor,
+        uint8 donationFactor
+    ) public {
+        vm.assume(
+            0 < initialPrizeFactor &&
+                3 <= months &&
+                0 < flowToImpactFactor &&
+                0 < donationFactor
+        );
+
+        (
+            PrizePool daoPrizePool,
+            ImpactSplitter daoImpactSplitter
+        ) = _createPrizePoolAndImpactSplitter();
+
+        _verifyFlows({
+            prizePool: daoPrizePool,
+            impactSplitter: daoImpactSplitter,
+            // 3 months–21.25 years
+            timePeriodInSeconds: uint64(months) * cycleSeconds,
+            // $1M–$255M
+            prizePoolFunding: uint128(initialPrizeFactor) * 1_000_000 ether,
+            // 0.25%–56.25%
+            flowToImpactBasisPoints: uint16(flowToImpactFactor) * 25,
+            // $100K–$25.5M
+            donation: uint128(donationFactor) * 100_000 ether,
+            researcherShares: 1000,
+            investorShares: 9000
+        });
+    }
+
+    function testPrizePoolCorrectnessBillions(
+        uint8 initialPrizeFactor,
+        uint8 months,
+        uint8 flowToImpactFactor,
+        uint8 donationFactor
+    ) public {
+        vm.assume(
+            0 < initialPrizeFactor &&
+                3 <= months &&
+                0 < flowToImpactFactor &&
+                0 < donationFactor
+        );
+
+        (
+            PrizePool daoPrizePool,
+            ImpactSplitter daoImpactSplitter
+        ) = _createPrizePoolAndImpactSplitter();
+
+        _verifyFlows({
+            prizePool: daoPrizePool,
+            impactSplitter: daoImpactSplitter,
+            // 3 months–21 years & 4 months
+            timePeriodInSeconds: uint64(months) * cycleSeconds,
+            // $1B–$255B
+            prizePoolFunding: uint128(initialPrizeFactor) * 1_000_000_000 ether,
+            // 0.25%–56.25%
+            flowToImpactBasisPoints: uint16(flowToImpactFactor) * 25,
+            // $1M–$255M
+            donation: uint128(donationFactor) * 1_000_000 ether,
+            researcherShares: 1000,
+            investorShares: 9000
+        });
+    }
+
+    function _verifyFlows(
+        PrizePool prizePool,
+        ImpactSplitter impactSplitter,
+        uint128 prizePoolFunding,
+        uint16 flowToImpactBasisPoints,
+        uint128 donation,
+        uint64 timePeriodInSeconds,
+        uint256 researcherShares,
+        uint256 investorShares
+    ) internal {
+        uint128 expectedTotalFlowOfOutcomePayments;
+        address targetAddress;
+        // to save on stack space
+        {
+            uint128 flowPerSecond = uint128(
+                (prizePoolFunding * flowToImpactBasisPoints) /
+                    (timePeriodInSeconds * 10_000)
+            );
+            vm.assume(0 < flowPerSecond);
+
+            donation = (donation / cycleSeconds) * cycleSeconds; // normalize
+            expectedTotalFlowOfOutcomePayments =
+                flowPerSecond *
+                timePeriodInSeconds +
+                (donation * flowToImpactBasisPoints) /
+                10_000;
+
+            // 3. Fund the PrizePool contract and the Philanthropist's wallet
+            giveDaiTo(address(prizePool), prizePoolFunding);
+            giveDaiTo(philanthropist, donation);
+        }
+
+        // 4. Ops sets up the stream to the ImpactSplitter
+        targetAddress = address(impactSplitter);
+        vm.prank(ops);
+        prizePool.streamTo(
+            targetAddress,
+            flowToImpactBasisPoints,
+            timePeriodInSeconds
+        );
+
+        /// 5. Researcher raises funds using Syndicate DAO or any other ERC20 platform
+        /// 6. An Impact Protocol Vault allows shareholders to stake their IP shares
+        /// A stake can be redeemed before maturity for a pro-rata share of the accumulated
+        /// payments at anytime. Redeeming your share early before all funds have been streamed
+        /// gives you liquidity but no claim on future streamed funds.
+        ///
+        /// This acts like a tradeable bond and enables price discovery in secondary markets.
+        (, ImpactProtocolVault ipVault) = _createImpactProtocolVaultAndStake(
+            researcherShares,
+            investorShares
+        );
+
+        // 7. Committee assigns Impact Points and receivers
         /// @notice receiver2 and receiver3 represent mocked ipSplitters
-        vm.startPrank(council);
+        vm.startPrank(committee);
+        targetAddress = address(ipVault);
         impactSplitter.setImpactSplits(
             splitsReceivers(
-                address(ipVault),
+                targetAddress,
                 50, // Impact Points for Hyper IP NFT
                 receiver2, // stub for a ImpactProtocolSplitter for DMT, for example
                 30, // Impact Points for receiver2
@@ -140,116 +246,52 @@ contract StreamingPrizeTest is ActorSystem, DripsSystem {
         //    to boost outcome payments
         skip(cycleSeconds);
         vm.startPrank(philanthropist);
-        dai.approve(address(streamsHub), donation);
+        dai.approve(streamsHubAddress, donation);
+        targetAddress = address(prizePool);
         streamsHub.setDrips(
             0,
             0,
             dripsReceivers(),
             int128(donation),
-            dripsReceivers(address(prizePool), donation / cycleSeconds / 2)
+            dripsReceivers(targetAddress, donation / cycleSeconds / 2)
         );
         vm.stopPrank();
 
         // Fast forward to the end of all streams
-        skip(timePeriodInSeconds - cycleSeconds + 1);
+        skip(timePeriodInSeconds + 1);
+
+        // To save on stack space
+        uint128 holdings;
+        uint128 flow;
 
         // Verify the PrizePool's collection and streaming of the donation
-        (uint128 prizeHoldings, uint128 prizeFlow) = prizePool.collect();
+        (holdings, flow) = prizePool.collect();
         assertStreamEq(
-            prizeHoldings,
-            (donation * (10_000 - impactSplitterFlowBasisPoints)) / 10_000
+            holdings,
+            (donation * (10_000 - flowToImpactBasisPoints)) / 10_000
         );
-        assertStreamEq(
-            prizeFlow,
-            (donation * impactSplitterFlowBasisPoints) / 10_000
-        );
+        assertStreamEq(flow, (donation * flowToImpactBasisPoints) / 10_000);
         // Verify the Impact Pool's colletion and streaming of outcome payments
-        (
-            uint128 impactHoldings,
-            uint128 outcomePaymentsTotalFlow
-        ) = impactSplitter.collect();
-        assertEq(impactHoldings, 0); // Impact Pool should not hold any funds
-        uint128 expectedTotalFlowOfOutcomePayments = flowPerSecond *
-            timePeriodInSeconds +
-            (donation * impactSplitterFlowBasisPoints) /
-            10_000;
-        assertStreamEq(
-            outcomePaymentsTotalFlow,
-            expectedTotalFlowOfOutcomePayments
-        );
-        // Verify that Hyper IP NFT shareholders received their outcome payments
-        uint128 ipVaultHoldings = ipVault.collect();
-        assertStreamEq(ipVaultHoldings, (outcomePaymentsTotalFlow * 5) / 10);
+        (holdings, flow) = impactSplitter.collect();
+        assertEq(holdings, 0); // Impact Pool should not hold any funds
+        assertStreamEq(flow, expectedTotalFlowOfOutcomePayments);
+        // Verify that Vault shareholders can redeem their share of outcome payments
+        holdings = ipVault.collect();
+        assertStreamEq(holdings, (expectedTotalFlowOfOutcomePayments * 5) / 10);
         // Verify that the researcher received their share of outcome payments
         assertStreamEq(
             ipVault.previewRedeem(researcherShares),
-            (ipVaultHoldings * researcherShares) / 10_000
+            (holdings * researcherShares) / 10_000
         );
         // Verify that the investor received their share of outcome payments
         assertStreamEq(
             ipVault.previewRedeem(investorShares),
-            (ipVaultHoldings * investorShares) / 10_000
+            (holdings * investorShares) / 10_000
         );
         // Verify that receivers can collect their pro-rata share of outcome payments
-        (uint128 r2payout, ) = streamsHub.collect(receiver2, splitsReceivers());
-        assertStreamEq(r2payout, (outcomePaymentsTotalFlow * 3) / 10);
-        (uint128 r3payout, ) = streamsHub.collect(receiver3, splitsReceivers());
-        assertStreamEq(r3payout, (outcomePaymentsTotalFlow * 2) / 10);
-    }
-
-    function xtestImpactProtocolSplitterRegistration(
-        uint16 researcherShares,
-        uint16 r1ipShares,
-        uint16 r2ipShares,
-        uint16 r3ipShares
-    ) public {
-        vm.assume(
-            2000 <= researcherShares &&
-                2000 <= r1ipShares &&
-                2000 <= r2ipShares &&
-                2000 <= r3ipShares
-        );
-
-        MockERC20 ipShares = new MockERC20(
-            "Open Psilocybin Treatment #42",
-            "SHROOMS",
-            18
-        );
-        ipShares.mint(researcher, researcherShares);
-        ipShares.mint(receiver1, r1ipShares);
-        ipShares.mint(receiver2, r2ipShares);
-        ipShares.mint(receiver3, r3ipShares);
-
-        ImpactProtocolSplitter ipSplitter = new ImpactProtocolSplitter(
-            address(streamsHub),
-            address(0),
-            address(ipShares)
-        );
-
-        vm.prank(researcher);
-        ipSplitter.register();
-        vm.prank(receiver1);
-        ipSplitter.register();
-        vm.prank(receiver2);
-        ipSplitter.register();
-        vm.prank(receiver3);
-        ipSplitter.register();
-    }
-
-    function testOpsCannotChangeStreamWhileLocked(uint8 factor) public {
-        vm.assume(0 < factor);
-        uint64 timelock = uint64(factor) * 24 hours;
-
-        giveDaiTo(address(prizePool), 1_000_000 ether); // $1M
-
-        vm.startPrank(ops);
-        prizePool.streamTo(address(impactSplitter), 1000, timelock);
-
-        vm.expectRevert("STREAM_LOCKED");
-        prizePool.streamTo(address(impactSplitter), 1000, timelock);
-
-        skip(timelock + 5 minutes);
-        prizePool.streamTo(address(impactSplitter), 1000, timelock);
-        vm.stopPrank();
+        (holdings, ) = streamsHub.collect(receiver2, splitsReceivers());
+        assertStreamEq(holdings, (expectedTotalFlowOfOutcomePayments * 3) / 10);
+        (holdings, ) = streamsHub.collect(receiver3, splitsReceivers());
+        assertStreamEq(holdings, (expectedTotalFlowOfOutcomePayments * 2) / 10);
     }
 }
